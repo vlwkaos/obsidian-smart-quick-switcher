@@ -1,0 +1,10 @@
+{
+	"id": "obsidian-smart-quick-switcher",
+	"name": "Smart Quick Switcher",
+	"version": "0.1.0",
+	"minAppVersion": "1.7.2",
+	"description": "Enhanced quick switcher with workspace-aware filtering, property-based search rules, and intelligent link prioritization.",
+	"author": "vlwkaos",
+	"authorUrl": "https://github.com/vlwkaos",
+	"isDesktopOnly": false
+}

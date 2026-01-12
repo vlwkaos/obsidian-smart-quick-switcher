@@ -1,0 +1,80 @@
+/* Smart Quick Switcher Styles */
+
+/* Modal item styling */
+.smart-quick-switcher-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.smart-quick-switcher-label {
+	flex-shrink: 0;
+	color: var(--text-muted);
+	font-size: 0.85em;
+	margin-right: 4px;
+}
+
+.smart-quick-switcher-path {
+	color: var(--text-muted);
+	font-size: 0.9em;
+	margin-left: auto;
+	opacity: 0.7;
+}
+
+/* Settings styling */
+.smart-quick-switcher-rule {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	margin-bottom: 16px;
+	padding: 8px;
+}
+
+.smart-quick-switcher-rule-header {
+	margin-bottom: 0 !important;
+	padding-bottom: 0 !important;
+}
+
+.smart-quick-switcher-rule-details {
+	padding-top: 12px;
+	border-top: 1px solid var(--background-modifier-border);
+	margin-top: 12px;
+}
+
+.enhanced-quick-switcher-icon {
+  opacity: 0.6;
+  font-size: 0.9em;
+}
+
+.enhanced-quick-switcher-path {
+  opacity: 0.6;
+  font-size: 0.9em;
+}
+
+/* Settings */
+.enhanced-quick-switcher-rule {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 1em;
+  margin-bottom: 1em;
+}
+
+.enhanced-quick-switcher-rule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5em;
+}
+
+.enhanced-quick-switcher-filter-row {
+  display: flex;
+  gap: 0.5em;
+  align-items: center;
+  margin-bottom: 0.5em;
+}
+
+.enhanced-quick-switcher-priority-grid {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.5em;
+  align-items: center;
+}

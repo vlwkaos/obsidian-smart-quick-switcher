@@ -1,0 +1,19 @@
+# Build output
+node_modules/
+main.js
+main.js.map
+*.log
+
+# OS files
+.DS_Store
+
+# Obsidian plugin data (user-specific)
+data.json
+
+# Development/AI assistant files
+AGENTS.MD
+CLAUDE.md
+ralph-*.json
+ralph-*.txt
+ralph*.json
+ralph*.txt
