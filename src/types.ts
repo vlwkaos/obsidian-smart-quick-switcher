@@ -11,6 +11,7 @@ export interface PropertyFilter {
 export interface ResultGroupPriority {
 	enabled: boolean;
 	priority: number;  // 1 = highest, lower number = higher priority
+	ignoreFilters?: boolean;  // Allow this group to bypass property filters (empty query only)
 }
 
 export interface SearchRule {
@@ -75,7 +76,7 @@ export function createDefaultRule(): SearchRule {
 		searchInContent: false,
 		searchInTags: true,
 		searchInProperties: false,
-		recentFiles: { enabled: true, priority: 1 },
+		recentFiles: { enabled: true, priority: 1, ignoreFilters: true },
 		outgoingLinks: { enabled: true, priority: 2 },
 		backlinks: { enabled: true, priority: 3 },
 		twoHopLinks: { enabled: true, priority: 4 },

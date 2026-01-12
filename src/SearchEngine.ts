@@ -34,18 +34,34 @@ export class SearchEngine {
 		const totalFiles = allFiles.length;
 
 		// Apply property filters first
-		allFiles = this.propertyFilter.filterFiles(allFiles, rule.propertyFilters);
-		const filteredCount = allFiles.length;
+		let filteredFiles = this.propertyFilter.filterFiles(allFiles, rule.propertyFilters);
+		const filteredCount = filteredFiles.length;
 
 		console.log('[SearchEngine] Total files:', totalFiles, '| After property filter:', filteredCount, '| Query:', `"${query}"`);
 
-		// If query is empty, return grouped results
+		// If query is empty, return grouped results (with optional recent files bypass)
 		if (!query || query.trim().length === 0) {
-			return this.getGroupedResults(allFiles, rule, currentFile);
+			// If recent files should ignore filters, add them to the filtered set
+			if (rule.recentFiles.enabled && rule.recentFiles.ignoreFilters) {
+				const recentTFiles = this.recentFiles.getRecentTFiles();
+				const filteredPaths = new Set(filteredFiles.map(f => f.path));
+				
+				// Add recent files that aren't already in filtered set
+				for (const recentFile of recentTFiles) {
+					if (!filteredPaths.has(recentFile.path)) {
+						filteredFiles.push(recentFile);
+					}
+				}
+				
+				console.log('[SearchEngine] Added', recentTFiles.filter(f => !filteredPaths.has(f.path)).length, 'recent files (ignoring filters)');
+			}
+			
+			return this.getGroupedResults(filteredFiles, rule, currentFile);
 		}
 
-		// Query is not empty: search and filter
-		const matchedFiles = this.searchByQuery(allFiles, query, rule);
+		// Query is not empty: search within property-filtered files only
+		// (recent files don't get special treatment during search)
+		const matchedFiles = this.searchByQuery(filteredFiles, query, rule);
 
 		console.log('[SearchEngine] Matched files in filtered set:', matchedFiles.length);
 
@@ -139,12 +155,15 @@ export class SearchEngine {
 			}));
 		}
 
+		// Filter out the current file
+		const filesWithoutCurrent = files.filter(file => file.path !== currentFile.path);
+
 		// Build group sets
 		const recentSet = new Set(this.recentFiles.getRecentFiles());
 		const links = this.linkAnalyzer.getCategorizedLinks(currentFile);
 
 		// Categorize and prioritize each file
-		const results: SearchResult[] = files.map(file => {
+		const results: SearchResult[] = filesWithoutCurrent.map(file => {
 			let group: ResultGroup = ResultGroup.OTHER;
 			let priority = 999;
 

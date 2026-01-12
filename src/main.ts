@@ -56,9 +56,10 @@ export default class SmartQuickSwitcherPlugin extends Plugin {
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 		
-		// Migrate old rules to include new outgoingLinks field
+		// Migrate old rules to include new fields
 		let needsSave = false;
 		for (const rule of this.settings.rules) {
+			// Migrate outgoingLinks field
 			if (!rule.outgoingLinks) {
 				rule.outgoingLinks = { enabled: true, priority: 2 };
 				
@@ -70,6 +71,12 @@ export default class SmartQuickSwitcherPlugin extends Plugin {
 					rule.twoHopLinks.priority++;
 				}
 				
+				needsSave = true;
+			}
+			
+			// Migrate ignoreFilters field for recentFiles
+			if (rule.recentFiles.ignoreFilters === undefined) {
+				rule.recentFiles.ignoreFilters = true;  // Default to true
 				needsSave = true;
 			}
 		}

@@ -154,10 +154,22 @@ export class SmartQuickSwitcherSettingTab extends PluginSettingTab {
 		detailsEl.createEl('h4', { text: 'Result Group Priorities' });
 		this.renderGroupPriorities(detailsEl, rule);
 
-		// Fallback
+		// Filter Bypass Options
+		detailsEl.createEl('h4', { text: 'Filter Bypass Options' });
+		
+		new Setting(detailsEl)
+			.setName('Recent files ignore property filters')
+			.setDesc('Show recent files in empty query view even if they don\'t match property filters')
+			.addToggle(toggle => toggle
+				.setValue(rule.recentFiles.ignoreFilters ?? true)
+				.onChange(async (value) => {
+					rule.recentFiles.ignoreFilters = value;
+					await this.plugin.saveSettings();
+				}));
+
 		new Setting(detailsEl)
 			.setName('Fallback to all files')
-			.setDesc('When no results match, search all files without filters')
+			.setDesc('When no results match during search, search all files without filters')
 			.addToggle(toggle => toggle
 				.setValue(rule.fallbackToAll)
 				.onChange(async (value) => {
