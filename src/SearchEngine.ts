@@ -31,9 +31,13 @@ export class SearchEngine {
 	public search(query: string, rule: SearchRule, currentFile: TFile | null): SearchResult[] {
 		// Get all markdown files
 		let allFiles = this.app.vault.getMarkdownFiles();
+		const totalFiles = allFiles.length;
 
 		// Apply property filters first
 		allFiles = this.propertyFilter.filterFiles(allFiles, rule.propertyFilters);
+		const filteredCount = allFiles.length;
+
+		console.log('[SearchEngine] Total files:', totalFiles, '| After property filter:', filteredCount, '| Query:', `"${query}"`);
 
 		// If query is empty, return grouped results
 		if (!query || query.trim().length === 0) {
@@ -43,14 +47,19 @@ export class SearchEngine {
 		// Query is not empty: search and filter
 		const matchedFiles = this.searchByQuery(allFiles, query, rule);
 
+		console.log('[SearchEngine] Matched files in filtered set:', matchedFiles.length);
+
 		if (matchedFiles.length === 0 && rule.fallbackToAll) {
 			// No results: fallback to searching all files
+			console.log('[SearchEngine] No matches - triggering fallback to all files');
 			const allFilesWithoutFilter = this.app.vault.getMarkdownFiles();
-			return this.searchByQuery(allFilesWithoutFilter, query, rule).map(file => ({
+			const fallbackResults = this.searchByQuery(allFilesWithoutFilter, query, rule).map(file => ({
 				file,
 				group: ResultGroup.OTHER,
 				priority: 999
 			}));
+			console.log('[SearchEngine] Fallback results:', fallbackResults.length);
+			return fallbackResults;
 		}
 
 		// Group and prioritize matched files
@@ -63,6 +72,8 @@ export class SearchEngine {
 	private searchByQuery(files: TFile[], query: string, rule: SearchRule): TFile[] {
 		const fuzzySearch = prepareFuzzySearch(query);
 		const results: Array<{ file: TFile; score: number }> = [];
+
+		console.log('[SearchEngine] searchByQuery called with', files.length, 'files, query:', `"${query}"`);
 
 		for (const file of files) {
 			let score = 0;
@@ -103,6 +114,11 @@ export class SearchEngine {
 			if (score > 0) {
 				results.push({ file, score });
 			}
+		}
+
+		console.log('[SearchEngine] searchByQuery found', results.length, 'matches');
+		if (results.length > 0 && results.length <= 5) {
+			console.log('[SearchEngine] Sample results:', results.slice(0, 5).map(r => ({ name: r.file.basename, score: r.score })));
 		}
 
 		// Sort by score (descending)
