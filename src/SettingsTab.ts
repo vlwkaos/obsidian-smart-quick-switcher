@@ -231,20 +231,31 @@ export class SmartQuickSwitcherSettingTab extends PluginSettingTab {
 	}
 
 	private renderPropertyFilter(containerEl: HTMLElement, rule: SearchRule, filter: PropertyFilter): void {
-		const displayText = filter.operator === 'exists' || filter.operator === 'not-exists'
-			? `${filter.propertyKey} ${filter.operator}`
-			: `${filter.propertyKey} ${filter.operator} "${filter.value}"`;
-
-		new Setting(containerEl)
-			.setName(displayText)
-			.addButton(button => button
-				.setButtonText('Remove')
-				.setWarning()
-				.onClick(async () => {
-					rule.propertyFilters = rule.propertyFilters.filter(f => f !== filter);
-					await this.plugin.saveSettings();
-					this.display();
-				}));
+		const filterContainer = containerEl.createDiv({ cls: 'setting-item' });
+		
+		// Create info section with styled filter display
+		const infoDiv = filterContainer.createDiv({ cls: 'setting-item-info' });
+		const nameDiv = infoDiv.createDiv({ cls: 'setting-item-name smart-quick-switcher-filter-display' });
+		
+		// Create styled components
+		const keySpan = nameDiv.createSpan({ cls: 'smart-quick-switcher-filter-key', text: filter.propertyKey });
+		const operatorSpan = nameDiv.createSpan({ cls: 'smart-quick-switcher-filter-operator', text: filter.operator });
+		
+		if (filter.operator !== 'exists' && filter.operator !== 'not-exists') {
+			const valueSpan = nameDiv.createSpan({ cls: 'smart-quick-switcher-filter-value', text: filter.value });
+		}
+		
+		// Create control section with remove button
+		const controlDiv = filterContainer.createDiv({ cls: 'setting-item-control' });
+		const removeButton = controlDiv.createEl('button', {
+			text: 'Remove',
+			cls: 'mod-warning'
+		});
+		removeButton.addEventListener('click', async () => {
+			rule.propertyFilters = rule.propertyFilters.filter(f => f !== filter);
+			await this.plugin.saveSettings();
+			this.display();
+		});
 	}
 
 	private renderSearchOptions(containerEl: HTMLElement, rule: SearchRule): void {
