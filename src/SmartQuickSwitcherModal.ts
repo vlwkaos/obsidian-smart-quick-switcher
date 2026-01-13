@@ -1,6 +1,11 @@
 import { App, FuzzySuggestModal, TFile, FuzzyMatch, prepareFuzzySearch } from 'obsidian';
 import { SearchRule, SearchResult, ResultGroup } from './types';
 import { SearchEngine } from './SearchEngine';
+import { 
+	sortSuggestionsByPriorityAndScore, 
+	findNonFilteredMatches, 
+	SuggestionMatch 
+} from './utils/suggestionUtils';
 
 /**
  * Modal for smart quick switcher file switching
@@ -56,17 +61,36 @@ export class SmartQuickSwitcherModal extends FuzzySuggestModal<TFile> {
 	getSuggestions(query: string): FuzzyMatch<TFile>[] {
 		this.lastQuery = query;
 		
-		// Get base filtered suggestions from parent class
-		const suggestions = super.getSuggestions(query);
+		// If query is empty, use parent's default behavior
+		if (!query || query.trim().length === 0) {
+			return super.getSuggestions(query);
+		}
 		
-		console.log('[SmartQuickSwitcher] getSuggestions query:', `"${query}"`, '| matches:', suggestions.length, '| fallback enabled:', this.activeRule.fallbackToAll);
+		// Query is not empty - we need to handle non-filtered results
+		// First, get filtered suggestions from parent class
+		const filteredSuggestions = super.getSuggestions(query);
 		
-		// If no matches and fallback enabled and query is not empty, search all files
-		if (suggestions.length === 0 && query.trim().length > 0 && this.activeRule.fallbackToAll && !this.usingFallback) {
+		// Convert to SuggestionMatch format for sorting
+		const filteredMatches: SuggestionMatch[] = filteredSuggestions.map(s => {
+			const result = this.fileToResultMap.get(s.item.path);
+			return {
+				file: s.item,
+				score: s.match.score,
+				group: result?.group ?? ResultGroup.OTHER,
+				priority: result?.priority ?? 999
+			};
+		});
+		
+		// Sort by priority first, then by score
+		const sortedFiltered = sortSuggestionsByPriorityAndScore(filteredMatches);
+		
+		console.log('[SmartQuickSwitcher] getSuggestions query:', `"${query}"`, '| filtered matches:', sortedFiltered.length, '| showNonFiltered:', this.activeRule.showNonFiltered);
+		
+		// If fallback enabled and no matches, search all files
+		if (sortedFiltered.length === 0 && this.activeRule.fallbackToAll && !this.usingFallback) {
 			console.log('[SmartQuickSwitcher] No matches, triggering fallback to all files');
 			this.usingFallback = true;
 			
-			// Get all files without property filter
 			const allFiles = this.app.vault.getMarkdownFiles();
 			const fuzzySearch = prepareFuzzySearch(query);
 			const fallbackMatches: FuzzyMatch<TFile>[] = [];
@@ -95,7 +119,50 @@ export class SmartQuickSwitcherModal extends FuzzySuggestModal<TFile> {
 			return fallbackMatches.slice(0, this.maxSuggestions);
 		}
 		
-		return suggestions;
+		// If showNonFiltered is enabled and we have filtered matches, add non-filtered matches
+		if (this.activeRule.showNonFiltered && sortedFiltered.length > 0) {
+			console.log('[SmartQuickSwitcher] Adding non-filtered results');
+			
+			// Get all files and find non-filtered matches
+			const allFiles = this.app.vault.getMarkdownFiles();
+			const filteredPaths = new Set(sortedFiltered.map(m => m.file.path));
+			const fuzzySearch = prepareFuzzySearch(query);
+			
+			const nonFilteredMatches = findNonFilteredMatches(
+				allFiles,
+				filteredPaths,
+				query,
+				fuzzySearch
+			);
+			
+			// Update fileToResultMap for non-filtered files (needed for rendering)
+			for (const match of nonFilteredMatches) {
+				this.fileToResultMap.set(match.file.path, {
+					file: match.file,
+					group: match.group,
+					priority: match.priority
+				});
+			}
+			
+			console.log('[SmartQuickSwitcher] Non-filtered matches:', nonFilteredMatches.length);
+			
+			// Combine and convert back to FuzzyMatch format
+			const allMatches = sortedFiltered.concat(nonFilteredMatches);
+			const combined: FuzzyMatch<TFile>[] = allMatches.slice(0, this.maxSuggestions).map(m => ({
+				item: m.file,
+				match: { score: m.score, matches: [] }
+			}));
+			
+			return combined;
+		}
+		
+		// Convert sorted filtered back to FuzzyMatch format
+		const result: FuzzyMatch<TFile>[] = sortedFiltered.map(m => ({
+			item: m.file,
+			match: { score: m.score, matches: [] }
+		}));
+		
+		return result;
 	}
 
 	getItemText(file: TFile): string {
@@ -107,6 +174,11 @@ export class SmartQuickSwitcherModal extends FuzzySuggestModal<TFile> {
 		const result = this.fileToResultMap.get(file.path);
 		
 		el.addClass('smart-quick-switcher-item');
+
+		// Add dimmed styling for non-filtered results
+		if (result && result.group === ResultGroup.NON_FILTERED) {
+			el.addClass('smart-quick-switcher-item-non-filtered');
+		}
 
 		// Add group label
 		if (result && result.group !== ResultGroup.OTHER) {
@@ -146,6 +218,8 @@ export class SmartQuickSwitcherModal extends FuzzySuggestModal<TFile> {
 				return 'back';
 			case ResultGroup.TWO_HOP:
 				return 'related';
+			case ResultGroup.NON_FILTERED:
+				return 'all';
 			case ResultGroup.OTHER:
 				return null;  // No label for other files
 			default:

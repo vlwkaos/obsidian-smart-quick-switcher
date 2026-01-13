@@ -35,6 +35,9 @@ export interface SearchRule {
 	
 	// Fallback
 	fallbackToAll: boolean;
+	
+	// Non-filtered results
+	showNonFiltered: boolean;        // Always show non-filtered results alongside filtered results
 }
 
 export interface SmartQuickSwitcherSettings {
@@ -50,7 +53,8 @@ export enum ResultGroup {
 	OUTGOING = 'outgoing',
 	BACKLINK = 'backlink',
 	TWO_HOP = 'two-hop',
-	OTHER = 'other'
+	OTHER = 'other',
+	NON_FILTERED = 'non-filtered'
 }
 
 export interface SearchResult {
@@ -81,5 +85,6 @@ export function createDefaultRule(): SearchRule {
 		backlinks: { enabled: true, priority: 3 },
 		twoHopLinks: { enabled: true, priority: 4 },
 		fallbackToAll: true,
+		showNonFiltered: true,
 	};
 }

@@ -79,7 +79,33 @@ export class SearchEngine {
 		}
 
 		// Group and prioritize matched files
-		return this.getGroupedResults(matchedFiles, rule, currentFile);
+		let results = this.getGroupedResults(matchedFiles, rule, currentFile);
+
+		// Add non-filtered results if enabled (always, regardless of filtered count)
+		if (rule.showNonFiltered && matchedFiles.length > 0) {
+			console.log('[SearchEngine] showNonFiltered enabled, searching non-filtered files');
+			
+			// Get all files that are NOT in the filtered set
+			const filteredPaths = new Set(filteredFiles.map(f => f.path));
+			const nonFilteredFiles = allFiles.filter(f => !filteredPaths.has(f.path));
+			
+			// Search within non-filtered files
+			const nonFilteredMatches = this.searchByQuery(nonFilteredFiles, query, rule);
+			
+			// Add non-filtered matches with NON_FILTERED group and low priority
+			const nonFilteredResults = nonFilteredMatches.map(file => ({
+				file,
+				group: ResultGroup.NON_FILTERED,
+				priority: 1000
+			}));
+			
+			console.log('[SearchEngine] Non-filtered results:', nonFilteredResults.length);
+			
+			// Append to results
+			results = results.concat(nonFilteredResults);
+		}
+
+		return results;
 	}
 
 	/**

@@ -168,6 +168,16 @@ export class SmartQuickSwitcherSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(detailsEl)
+			.setName('Show non-filtered results')
+			.setDesc('Show matching files outside the filter alongside filtered results (dimmed, labeled [all])')
+			.addToggle(toggle => toggle
+				.setValue(rule.showNonFiltered ?? true)
+				.onChange(async (value) => {
+					rule.showNonFiltered = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(detailsEl)
 			.setName('Fallback to all files')
 			.setDesc('When no results match during search, search all files without filters')
 			.addToggle(toggle => toggle
