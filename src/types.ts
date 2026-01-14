@@ -18,7 +18,8 @@ export interface SearchRule {
 	id: string;
 	name: string;
 	
-	// Property filters
+	// Filters
+	excludedPaths: string[];         // Folder paths to exclude (e.g., ["templates/", "archive/"])
 	propertyFilters: PropertyFilter[];
 	
 	// Search behavior
@@ -33,11 +34,9 @@ export interface SearchRule {
 	backlinks: ResultGroupPriority;
 	twoHopLinks: ResultGroupPriority;
 	
-	// Fallback
-	fallbackToAll: boolean;
-	
-	// Non-filtered results
-	showNonFiltered: boolean;        // Always show non-filtered results alongside filtered results
+	// Extended results
+	extendSearchResult: boolean;     // Show additional matches outside filter (marked as [all]) during search
+	filterRelatedFiles: boolean;     // Apply property filters to related files (empty query, current file outside filters)
 }
 
 export interface SmartQuickSwitcherSettings {
@@ -75,6 +74,7 @@ export function createDefaultRule(): SearchRule {
 	return {
 		id: `rule-${Date.now()}`,
 		name: 'New Rule',
+		excludedPaths: [],
 		propertyFilters: [],
 		fuzzySearch: true,
 		searchInContent: false,
@@ -84,7 +84,7 @@ export function createDefaultRule(): SearchRule {
 		outgoingLinks: { enabled: true, priority: 2 },
 		backlinks: { enabled: true, priority: 3 },
 		twoHopLinks: { enabled: true, priority: 4 },
-		fallbackToAll: true,
-		showNonFiltered: true,
+		extendSearchResult: true,
+		filterRelatedFiles: false,
 	};
 }

@@ -6,6 +6,7 @@ import {
 	findNonFilteredMatches, 
 	SuggestionMatch 
 } from './utils/suggestionUtils';
+import { filterByExcludedPaths } from './utils/pathFilterUtils';
 
 /**
  * Modal for smart quick switcher file switching
@@ -61,108 +62,55 @@ export class SmartQuickSwitcherModal extends FuzzySuggestModal<TFile> {
 	getSuggestions(query: string): FuzzyMatch<TFile>[] {
 		this.lastQuery = query;
 		
-		// If query is empty, use parent's default behavior
+		// Get base suggestions from parent class (searches within getItems() results)
+		const suggestions = super.getSuggestions(query);
+		
+		console.log('[SmartQuickSwitcher] getSuggestions query:', `"${query}"`, '| base matches:', suggestions.length, '| extendSearchResult:', this.activeRule.extendSearchResult);
+		
+		// If query is empty, return base suggestions (already handled by getItems())
 		if (!query || query.trim().length === 0) {
-			return super.getSuggestions(query);
+			return suggestions;
 		}
 		
-		// Query is not empty - we need to handle non-filtered results
-		// First, get filtered suggestions from parent class
-		const filteredSuggestions = super.getSuggestions(query);
-		
-		// Convert to SuggestionMatch format for sorting
-		const filteredMatches: SuggestionMatch[] = filteredSuggestions.map(s => {
-			const result = this.fileToResultMap.get(s.item.path);
-			return {
-				file: s.item,
-				score: s.match.score,
-				group: result?.group ?? ResultGroup.OTHER,
-				priority: result?.priority ?? 999
-			};
-		});
-		
-		// Sort by priority first, then by score
-		const sortedFiltered = sortSuggestionsByPriorityAndScore(filteredMatches);
-		
-		console.log('[SmartQuickSwitcher] getSuggestions query:', `"${query}"`, '| filtered matches:', sortedFiltered.length, '| showNonFiltered:', this.activeRule.showNonFiltered);
-		
-		// If fallback enabled and no matches, search all files
-		if (sortedFiltered.length === 0 && this.activeRule.fallbackToAll && !this.usingFallback) {
-			console.log('[SmartQuickSwitcher] No matches, triggering fallback to all files');
-			this.usingFallback = true;
+		// If extendSearchResult enabled, also search ALL candidate files and append [all] results
+		if (this.activeRule.extendSearchResult) {
+			console.log('[SmartQuickSwitcher] Searching all candidate files for extended results');
 			
 			const allFiles = this.app.vault.getMarkdownFiles();
+			const candidateFiles = filterByExcludedPaths(allFiles, this.activeRule.excludedPaths);
+			const existingPaths = new Set(suggestions.map(s => s.item.path));
+			
+			// Use utility function to find and sort non-filtered matches
 			const fuzzySearch = prepareFuzzySearch(query);
-			const fallbackMatches: FuzzyMatch<TFile>[] = [];
-			
-			for (const file of allFiles) {
-				const match = fuzzySearch(file.basename);
-				if (match) {
-					fallbackMatches.push({
-						item: file,
-						match: match
-					});
-				}
-			}
-			
-			// Update map for fallback files
-			this.fileToResultMap.clear();
-			for (const file of allFiles) {
-				this.fileToResultMap.set(file.path, {
-					file,
-					group: ResultGroup.OTHER,
-					priority: 999
-				});
-			}
-			
-			console.log('[SmartQuickSwitcher] Fallback found', fallbackMatches.length, 'matches');
-			return fallbackMatches.slice(0, this.maxSuggestions);
-		}
-		
-		// If showNonFiltered is enabled and we have filtered matches, add non-filtered matches
-		if (this.activeRule.showNonFiltered && sortedFiltered.length > 0) {
-			console.log('[SmartQuickSwitcher] Adding non-filtered results');
-			
-			// Get all files and find non-filtered matches
-			const allFiles = this.app.vault.getMarkdownFiles();
-			const filteredPaths = new Set(sortedFiltered.map(m => m.file.path));
-			const fuzzySearch = prepareFuzzySearch(query);
-			
 			const nonFilteredMatches = findNonFilteredMatches(
-				allFiles,
-				filteredPaths,
+				candidateFiles,
+				existingPaths,
 				query,
 				fuzzySearch
 			);
 			
-			// Update fileToResultMap for non-filtered files (needed for rendering)
+			// Add to map for rendering with [all] label
 			for (const match of nonFilteredMatches) {
 				this.fileToResultMap.set(match.file.path, {
 					file: match.file,
-					group: match.group,
-					priority: match.priority
+					group: ResultGroup.NON_FILTERED,
+					priority: 1000
 				});
 			}
 			
-			console.log('[SmartQuickSwitcher] Non-filtered matches:', nonFilteredMatches.length);
-			
-			// Combine and convert back to FuzzyMatch format
-			const allMatches = sortedFiltered.concat(nonFilteredMatches);
-			const combined: FuzzyMatch<TFile>[] = allMatches.slice(0, this.maxSuggestions).map(m => ({
+			// Convert to FuzzyMatch format
+			const extendedMatches: FuzzyMatch<TFile>[] = nonFilteredMatches.map(m => ({
 				item: m.file,
 				match: { score: m.score, matches: [] }
 			}));
 			
-			return combined;
+			console.log('[SmartQuickSwitcher] Extended matches found:', extendedMatches.length);
+			
+			// Combine base + extended, limit to maxSuggestions
+			return [...suggestions, ...extendedMatches].slice(0, this.maxSuggestions);
 		}
 		
-		// Convert sorted filtered back to FuzzyMatch format
-		const result: FuzzyMatch<TFile>[] = sortedFiltered.map(m => ({
-			item: m.file,
-			match: { score: m.score, matches: [] }
-		}));
-		
-		return result;
+		return suggestions;
 	}
 
 	getItemText(file: TFile): string {

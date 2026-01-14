@@ -3,6 +3,7 @@ import { SearchRule, SearchResult, ResultGroup } from './types';
 import { LinkAnalyzer, CategorizedLinks } from './LinkAnalyzer';
 import { PropertyFilterEngine } from './PropertyFilterEngine';
 import { RecentFilesTracker } from './RecentFilesTracker';
+import { filterByExcludedPaths, isPathExcluded } from './utils/pathFilterUtils';
 
 /**
  * Core search engine that orchestrates filtering, searching, and prioritization
@@ -33,14 +34,32 @@ export class SearchEngine {
 		let allFiles = this.app.vault.getMarkdownFiles();
 		const totalFiles = allFiles.length;
 
-		// Apply property filters first
-		let filteredFiles = this.propertyFilter.filterFiles(allFiles, rule.propertyFilters);
-		const filteredCount = filteredFiles.length;
+		// Step 1: Apply excluded paths filter
+		const candidateFiles = filterByExcludedPaths(allFiles, rule.excludedPaths);
+		const afterExclude = candidateFiles.length;
 
-		console.log('[SearchEngine] Total files:', totalFiles, '| After property filter:', filteredCount, '| Query:', `"${query}"`);
+		// Step 2: Determine if current file is outside all filters
+		const currentFileOutsideFilters = currentFile && (
+			isPathExcluded(currentFile.path, rule.excludedPaths) ||
+			!this.propertyFilter.passesFilters(currentFile, rule.propertyFilters)
+		);
 
-		// If query is empty, return grouped results (with optional recent files bypass)
+		console.log('[SearchEngine] Total:', totalFiles, '| After exclude:', afterExclude, '| Query:', `"${query}"`, '| Current file outside filters:', currentFileOutsideFilters);
+
+		// Empty query handling
 		if (!query || query.trim().length === 0) {
+			// NEW: If current file is outside filters, show related files (filtered first, then non-filtered with [all])
+			if (currentFileOutsideFilters && currentFile) {
+				console.log('[SearchEngine] Current file outside filters - showing related files with filter priority');
+				return this.getRelatedFilesWithFilterPriority(candidateFiles, rule, currentFile);
+			}
+
+			// Existing: Apply property filters
+			let filteredFiles = this.propertyFilter.filterFiles(candidateFiles, rule.propertyFilters);
+			const filteredCount = filteredFiles.length;
+
+			console.log('[SearchEngine] After property filter:', filteredCount);
+
 			// If recent files should ignore filters, add them to the filtered set
 			if (rule.recentFiles.enabled && rule.recentFiles.ignoreFilters) {
 				const recentTFiles = this.recentFiles.getRecentTFiles();
@@ -59,35 +78,28 @@ export class SearchEngine {
 			return this.getGroupedResults(filteredFiles, rule, currentFile);
 		}
 
-		// Query is not empty: search within property-filtered files only
-		// (recent files don't get special treatment during search)
+		// Non-empty query handling
+		if (currentFileOutsideFilters && currentFile) {
+			// NEW: Current file outside filters - prioritize links, then filtered results
+			return this.searchWithLinkPriority(query, rule, currentFile, candidateFiles);
+		}
+
+		// Existing: Normal search within filtered files
+		let filteredFiles = this.propertyFilter.filterFiles(candidateFiles, rule.propertyFilters);
 		const matchedFiles = this.searchByQuery(filteredFiles, query, rule);
 
 		console.log('[SearchEngine] Matched files in filtered set:', matchedFiles.length);
 
-		if (matchedFiles.length === 0 && rule.fallbackToAll) {
-			// No results: fallback to searching all files
-			console.log('[SearchEngine] No matches - triggering fallback to all files');
-			const allFilesWithoutFilter = this.app.vault.getMarkdownFiles();
-			const fallbackResults = this.searchByQuery(allFilesWithoutFilter, query, rule).map(file => ({
-				file,
-				group: ResultGroup.OTHER,
-				priority: 999
-			}));
-			console.log('[SearchEngine] Fallback results:', fallbackResults.length);
-			return fallbackResults;
-		}
-
 		// Group and prioritize matched files
 		let results = this.getGroupedResults(matchedFiles, rule, currentFile);
 
-		// Add non-filtered results if enabled (always, regardless of filtered count)
-		if (rule.showNonFiltered && matchedFiles.length > 0) {
-			console.log('[SearchEngine] showNonFiltered enabled, searching non-filtered files');
+		// Extend with non-filtered results if enabled
+		if (rule.extendSearchResult) {
+			console.log('[SearchEngine] extendSearchResult enabled, searching non-filtered files');
 			
 			// Get all files that are NOT in the filtered set
 			const filteredPaths = new Set(filteredFiles.map(f => f.path));
-			const nonFilteredFiles = allFiles.filter(f => !filteredPaths.has(f.path));
+			const nonFilteredFiles = candidateFiles.filter(f => !filteredPaths.has(f.path));
 			
 			// Search within non-filtered files
 			const nonFilteredMatches = this.searchByQuery(nonFilteredFiles, query, rule);
@@ -101,7 +113,7 @@ export class SearchEngine {
 			
 			console.log('[SearchEngine] Non-filtered results:', nonFilteredResults.length);
 			
-			// Append to results
+			// Append to results (handles both "has matches" and "no matches" cases)
 			results = results.concat(nonFilteredResults);
 		}
 
@@ -169,6 +181,121 @@ export class SearchEngine {
 	}
 
 	/**
+	 * Get related files when current file is outside filters (empty query)
+	 * Behavior depends on filterRelatedFiles setting:
+	 * - true: Only show related files that match property filters
+	 * - false: Show all related files (ignore property filters)
+	 */
+	private getRelatedFilesWithFilterPriority(
+		candidateFiles: TFile[],
+		rule: SearchRule,
+		currentFile: TFile
+	): SearchResult[] {
+		// Get current file's link relationships
+		const links = this.linkAnalyzer.getCategorizedLinks(currentFile);
+		const recentSet = new Set(this.recentFiles.getRecentFiles());
+		
+		console.log('[SearchEngine] Link relationships - recent:', recentSet.size, 'outgoing:', links.outgoing.size, 'backlinks:', links.backlinks.size, 'two-hop:', links.twoHop.size);
+		
+		const relatedPaths = new Set([
+			...recentSet,
+			...links.outgoing,
+			...links.backlinks,
+			...links.twoHop
+		]);
+		
+		// Filter to only related files from candidate files
+		let relatedFiles = candidateFiles.filter(f => relatedPaths.has(f.path));
+		
+		console.log('[SearchEngine] Related files found:', relatedFiles.length, '| filterRelatedFiles:', rule.filterRelatedFiles);
+		
+		// Apply property filter if configured
+		if (rule.filterRelatedFiles) {
+			relatedFiles = relatedFiles.filter(f => 
+				this.propertyFilter.passesFilters(f, rule.propertyFilters)
+			);
+			console.log('[SearchEngine] After property filter:', relatedFiles.length);
+		}
+		
+		// Group by relationship type and return
+		const results = this.getGroupedResults(relatedFiles, rule, currentFile);
+		
+		console.log('[SearchEngine] Grouped results:', results.map(r => `${r.file.basename}=[${r.group}]`).join(', '));
+		
+		return results;
+	}
+
+	/**
+	 * Search with link priority when current file is outside filters
+	 * Prioritizes: 1) Links to current file, 2) Filtered results, 3) Extended results (if enabled)
+	 */
+	private searchWithLinkPriority(
+		query: string,
+		rule: SearchRule,
+		currentFile: TFile,
+		candidateFiles: TFile[]
+	): SearchResult[] {
+		// 1. Get current file's link relationships
+		const links = this.linkAnalyzer.getCategorizedLinks(currentFile);
+		const recentSet = new Set(this.recentFiles.getRecentFiles());
+		
+		const linkedPaths = new Set([
+			...links.outgoing,
+			...links.backlinks,
+			...links.twoHop
+		]);
+		
+		// 2. Search within linked files and recent files
+		const linkedFiles = candidateFiles.filter(f => 
+			linkedPaths.has(f.path) || recentSet.has(f.path)
+		);
+		const linkedMatches = this.searchByQuery(linkedFiles, query, rule);
+		const linkedResults = this.getGroupedResults(linkedMatches, rule, currentFile);
+		
+		console.log('[SearchEngine] Link-based matches:', linkedMatches.length);
+		
+		// 3. Search within filtered files (excluding already matched links)
+		const matchedPaths = new Set(linkedMatches.map(f => f.path));
+		const filteredFiles = this.propertyFilter.filterFiles(candidateFiles, rule.propertyFilters);
+		const remainingFiltered = filteredFiles.filter(f => !matchedPaths.has(f.path));
+		const filteredMatches = this.searchByQuery(remainingFiltered, query, rule);
+		const filteredResults = filteredMatches.map(file => ({
+			file,
+			group: ResultGroup.OTHER,
+			priority: 500  // After linked results
+		}));
+		
+		console.log('[SearchEngine] Filtered matches:', filteredMatches.length);
+		
+		// 4. Combine results
+		let results = [...linkedResults, ...filteredResults];
+		
+		// 5. Extend with non-filtered results if enabled
+		if (rule.extendSearchResult) {
+			console.log('[SearchEngine] extendSearchResult enabled for link priority search');
+			
+			// Get non-filtered files (excluding already matched)
+			const allMatchedPaths = new Set([...matchedPaths, ...filteredMatches.map(f => f.path)]);
+			const filteredPaths = new Set(filteredFiles.map(f => f.path));
+			const nonFilteredFiles = candidateFiles.filter(f => 
+				!allMatchedPaths.has(f.path) && !filteredPaths.has(f.path)
+			);
+			
+			const nonFilteredMatches = this.searchByQuery(nonFilteredFiles, query, rule);
+			const nonFilteredResults = nonFilteredMatches.map(file => ({
+				file,
+				group: ResultGroup.NON_FILTERED,
+				priority: 1000
+			}));
+			
+			console.log('[SearchEngine] Extended non-filtered matches:', nonFilteredMatches.length);
+			results = results.concat(nonFilteredResults);
+		}
+		
+		return results;
+	}
+
+	/**
 	 * Group files by their category and assign priorities
 	 */
 	private getGroupedResults(files: TFile[], rule: SearchRule, currentFile: TFile | null): SearchResult[] {
@@ -188,25 +315,34 @@ export class SearchEngine {
 		const recentSet = new Set(this.recentFiles.getRecentFiles());
 		const links = this.linkAnalyzer.getCategorizedLinks(currentFile);
 
+		console.log('[SearchEngine] getGroupedResults - recentSet:', [...recentSet].slice(0, 3), '| outgoing:', [...links.outgoing].slice(0, 3), '| backlinks:', [...links.backlinks].slice(0, 3));
+
 		// Categorize and prioritize each file
 		const results: SearchResult[] = filesWithoutCurrent.map(file => {
 			let group: ResultGroup = ResultGroup.OTHER;
 			let priority = 999;
 
+			const inRecent = recentSet.has(file.path);
+			const inOutgoing = links.outgoing.has(file.path);
+			const inBacklinks = links.backlinks.has(file.path);
+			const inTwoHop = links.twoHop.has(file.path);
+
 			// Check group membership - order matters for priority!
-			if (rule.recentFiles.enabled && recentSet.has(file.path)) {
+			if (rule.recentFiles.enabled && inRecent) {
 				group = ResultGroup.RECENT;
 				priority = rule.recentFiles.priority;
-			} else if (rule.outgoingLinks.enabled && links.outgoing.has(file.path)) {
+			} else if (rule.outgoingLinks.enabled && inOutgoing) {
 				group = ResultGroup.OUTGOING;
 				priority = rule.outgoingLinks.priority;
-			} else if (rule.backlinks.enabled && links.backlinks.has(file.path)) {
+			} else if (rule.backlinks.enabled && inBacklinks) {
 				group = ResultGroup.BACKLINK;
 				priority = rule.backlinks.priority;
-			} else if (rule.twoHopLinks.enabled && links.twoHop.has(file.path)) {
+			} else if (rule.twoHopLinks.enabled && inTwoHop) {
 				group = ResultGroup.TWO_HOP;
 				priority = rule.twoHopLinks.priority;
 			}
+
+			console.log('[SearchEngine] File:', file.path, '| inRecent:', inRecent, '| inOutgoing:', inOutgoing, '| inBacklinks:', inBacklinks, '| inTwoHop:', inTwoHop, '| group:', group);
 
 			return { file, group, priority };
 		});

@@ -59,6 +59,27 @@ export default class SmartQuickSwitcherPlugin extends Plugin {
 		// Migrate old rules to include new fields
 		let needsSave = false;
 		for (const rule of this.settings.rules) {
+			// Migrate excludedPaths field
+			if (!rule.excludedPaths) {
+				rule.excludedPaths = [];
+				needsSave = true;
+			}
+			
+			// Migrate showNonFiltered + fallbackToAll to extendSearchResult
+			if ((rule as any).showNonFiltered !== undefined || (rule as any).fallbackToAll !== undefined) {
+				// If either was true, enable extendSearchResult
+				rule.extendSearchResult = (rule as any).showNonFiltered || (rule as any).fallbackToAll;
+				delete (rule as any).showNonFiltered;
+				delete (rule as any).fallbackToAll;
+				needsSave = true;
+			}
+			
+			// Migrate filterRelatedFiles field
+			if (rule.filterRelatedFiles === undefined) {
+				rule.filterRelatedFiles = false;  // Default: show all related files
+				needsSave = true;
+			}
+			
 			// Migrate outgoingLinks field
 			if (!rule.outgoingLinks) {
 				rule.outgoingLinks = { enabled: true, priority: 2 };

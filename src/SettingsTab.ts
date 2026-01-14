@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, AbstractInputSuggest, TFolder } from 'obsidian';
 import SmartQuickSwitcherPlugin from './main';
 import { SearchRule, PropertyFilter, createDefaultRule } from './types';
 
@@ -142,6 +142,10 @@ export class SmartQuickSwitcherSettingTab extends PluginSettingTab {
 					}
 				}));
 
+		// Excluded Paths
+		detailsEl.createEl('h4', { text: 'Excluded Paths' });
+		this.renderExcludedPaths(detailsEl, rule);
+
 		// Property Filters
 		detailsEl.createEl('h4', { text: 'Property Filters' });
 		this.renderPropertyFilters(detailsEl, rule);
@@ -154,8 +158,8 @@ export class SmartQuickSwitcherSettingTab extends PluginSettingTab {
 		detailsEl.createEl('h4', { text: 'Result Group Priorities' });
 		this.renderGroupPriorities(detailsEl, rule);
 
-		// Filter Bypass Options
-		detailsEl.createEl('h4', { text: 'Filter Bypass Options' });
+		// Extended Search Options
+		detailsEl.createEl('h4', { text: 'Extended Search Options' });
 		
 		new Setting(detailsEl)
 			.setName('Recent files ignore property filters')
@@ -168,22 +172,22 @@ export class SmartQuickSwitcherSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(detailsEl)
-			.setName('Show non-filtered results')
-			.setDesc('Show matching files outside the filter alongside filtered results (dimmed, labeled [all])')
+			.setName('Extend search results')
+			.setDesc('Show additional matches outside filter (marked as [all]) during search queries')
 			.addToggle(toggle => toggle
-				.setValue(rule.showNonFiltered ?? true)
+				.setValue(rule.extendSearchResult ?? true)
 				.onChange(async (value) => {
-					rule.showNonFiltered = value;
+					rule.extendSearchResult = value;
 					await this.plugin.saveSettings();
 				}));
 
 		new Setting(detailsEl)
-			.setName('Fallback to all files')
-			.setDesc('When no results match during search, search all files without filters')
+			.setName('Filter related files')
+			.setDesc('Apply property filters to related files when current file is outside filters (empty query)')
 			.addToggle(toggle => toggle
-				.setValue(rule.fallbackToAll)
+				.setValue(rule.filterRelatedFiles ?? false)
 				.onChange(async (value) => {
-					rule.fallbackToAll = value;
+					rule.filterRelatedFiles = value;
 					await this.plugin.saveSettings();
 				}));
 	}
@@ -277,6 +281,64 @@ export class SmartQuickSwitcherSettingTab extends PluginSettingTab {
 			rule.propertyFilters = rule.propertyFilters.filter(f => f !== filter);
 			await this.plugin.saveSettings();
 			this.display();
+		});
+	}
+
+	private renderExcludedPaths(containerEl: HTMLElement, rule: SearchRule): void {
+		// Description
+		containerEl.createEl('p', {
+			text: 'Exclude files in these folders from search results. Use folder autocomplete for suggestions.',
+			attr: { style: 'opacity: 0.7; font-size: 0.9em; margin-bottom: 8px;' }
+		});
+
+		const pathsContainer = containerEl.createDiv();
+		
+		// List existing excluded paths
+		for (const path of rule.excludedPaths) {
+			this.renderExcludedPath(pathsContainer, rule, path);
+		}
+		
+		// Add new path input
+		this.renderAddExcludedPath(pathsContainer, rule);
+	}
+
+	private renderExcludedPath(containerEl: HTMLElement, rule: SearchRule, path: string): void {
+		new Setting(containerEl)
+			.setName(path)
+			.addButton(btn => btn
+				.setButtonText('Remove')
+				.setWarning()
+				.onClick(async () => {
+					rule.excludedPaths = rule.excludedPaths.filter(p => p !== path);
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+	}
+
+	private renderAddExcludedPath(containerEl: HTMLElement, rule: SearchRule): void {
+		const addContainer = containerEl.createDiv({ cls: 'setting-item' });
+		addContainer.createDiv({ cls: 'setting-item-info' })
+			.createDiv({ cls: 'setting-item-name', text: 'Add excluded path' });
+		
+		const controls = addContainer.createDiv({ cls: 'setting-item-control' });
+		
+		const input = controls.createEl('input', {
+			type: 'text',
+			placeholder: 'e.g., templates/',
+			attr: { style: 'width: 200px; margin-right: 8px;' }
+		});
+		
+		// Attach folder autocomplete
+		new FolderSuggest(this.app, input);
+		
+		const addBtn = controls.createEl('button', { text: 'Add', cls: 'mod-cta' });
+		addBtn.addEventListener('click', async () => {
+			const path = input.value.trim();
+			if (path && !rule.excludedPaths.includes(path)) {
+				rule.excludedPaths.push(path);
+				await this.plugin.saveSettings();
+				this.display();
+			}
 		});
 	}
 
@@ -484,5 +546,40 @@ export class SmartQuickSwitcherSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
+	}
+}
+
+/**
+ * Folder autocomplete suggester for excluded paths input
+ */
+class FolderSuggest extends AbstractInputSuggest<TFolder> {
+	constructor(app: App, inputEl: HTMLInputElement) {
+		super(app, inputEl);
+	}
+
+	getSuggestions(inputStr: string): TFolder[] {
+		const folders: TFolder[] = [];
+		const lowerInput = inputStr.toLowerCase();
+		
+		this.app.vault.getAllLoadedFiles().forEach(file => {
+			if (file instanceof TFolder && 
+				file.path.toLowerCase().includes(lowerInput) &&
+				file.path !== '/') {
+				folders.push(file);
+			}
+		});
+		
+		return folders
+			.sort((a, b) => a.path.localeCompare(b.path))
+			.slice(0, 10);
+	}
+	
+	renderSuggestion(folder: TFolder, el: HTMLElement): void {
+		el.setText(folder.path + '/');
+	}
+	
+	selectSuggestion(folder: TFolder): void {
+		this.setValue(folder.path + '/');
+		this.close();
 	}
 }
