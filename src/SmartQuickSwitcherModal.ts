@@ -1,11 +1,7 @@
 import { App, FuzzySuggestModal, TFile, FuzzyMatch, prepareFuzzySearch } from 'obsidian';
 import { SearchRule, SearchResult, ResultGroup } from './types';
 import { SearchEngine } from './SearchEngine';
-import { 
-	sortSuggestionsByPriorityAndScore, 
-	findNonFilteredMatches, 
-	SuggestionMatch 
-} from './utils/suggestionUtils';
+import { findNonFilteredMatches } from './utils/suggestionUtils';
 import { filterByExcludedPaths } from './utils/pathFilterUtils';
 
 /**
