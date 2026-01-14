@@ -183,12 +183,26 @@ export default class SmartQuickSwitcherPlugin extends Plugin {
 	 * Open the smart quick switcher modal with a specific rule
 	 */
 	private openSwitcher(rule: SearchRule) {
+		// Check if current file is outside filters
+		const currentFile = this.app.workspace.getActiveFile();
+		let currentFileOutsideFilters = false;
+		
+		if (currentFile) {
+			const isExcludedByPath = rule.excludedPaths.some(excludedPath => {
+				const normalized = excludedPath.endsWith('/') ? excludedPath : excludedPath + '/';
+				return currentFile.path.startsWith(normalized);
+			});
+			const passesPropertyFilter = this.propertyFilter.passesFilters(currentFile, rule.propertyFilters);
+			currentFileOutsideFilters = isExcludedByPath || !passesPropertyFilter;
+		}
+		
 		const modal = new SmartQuickSwitcherModal(
 			this.app,
 			this.searchEngine,
 			rule,
 			this.settings.showDirectory,
-			this.settings.maxSuggestions
+			this.settings.maxSuggestions,
+			currentFileOutsideFilters
 		);
 		modal.open();
 	}

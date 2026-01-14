@@ -25,7 +25,8 @@ export class SmartQuickSwitcherModal extends FuzzySuggestModal<TFile> {
 		searchEngine: SearchEngine,
 		activeRule: SearchRule,
 		showDirectory: boolean,
-		maxSuggestions: number
+		maxSuggestions: number,
+		currentFileOutsideFilters: boolean = false
 	) {
 		super(app);
 		this.searchEngine = searchEngine;
@@ -36,7 +37,12 @@ export class SmartQuickSwitcherModal extends FuzzySuggestModal<TFile> {
 		this.lastQuery = '';
 		this.usingFallback = false;
 
-		this.setPlaceholder('Search files...');
+		// Set placeholder based on current file status
+		if (currentFileOutsideFilters) {
+			this.setPlaceholder('Current file outside filter - showing related files...');
+		} else {
+			this.setPlaceholder('Search files...');
+		}
 		this.limit = maxSuggestions;
 	}
 
