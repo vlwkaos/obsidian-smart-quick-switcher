@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, AbstractInputSuggest, TFolder } from 'obsidian';
+import { App, PluginSettingTab, Setting, AbstractInputSuggest, TFolder, FuzzySuggestModal, TFile } from 'obsidian';
 import SmartQuickSwitcherPlugin from './main';
 import { SearchRule, PropertyFilter, createDefaultRule } from './types';
 
@@ -67,6 +67,37 @@ export class SmartQuickSwitcherSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}
 				}));
+		
+		// Template for new notes
+		new Setting(containerEl)
+			.setName('New note template')
+			.setDesc('Optional: Select a template file to use when creating notes with Shift+Enter')
+			.addButton(button => {
+				button
+					.setButtonText(this.plugin.settings.newNoteTemplate || 'No template')
+					.onClick(async () => {
+						const modal = new TemplateSuggestModal(
+							this.app,
+							async (file: TFile) => {
+								this.plugin.settings.newNoteTemplate = file.path;
+								await this.plugin.saveSettings();
+								button.setButtonText(file.path);
+							}
+						);
+						modal.open();
+					});
+			})
+			.addButton(button => {
+				button
+					.setButtonText('Clear')
+					.setDisabled(!this.plugin.settings.newNoteTemplate)
+					.onClick(async () => {
+						this.plugin.settings.newNoteTemplate = undefined;
+						await this.plugin.saveSettings();
+						// Refresh the display to update button text
+						this.display();
+					});
+			});
 	}
 
 	private renderSearchRules(containerEl: HTMLElement): void {
@@ -581,5 +612,30 @@ class FolderSuggest extends AbstractInputSuggest<TFolder> {
 	selectSuggestion(folder: TFolder): void {
 		this.setValue(folder.path + '/');
 		this.close();
+	}
+}
+
+/**
+ * Modal for selecting a template file
+ */
+class TemplateSuggestModal extends FuzzySuggestModal<TFile> {
+	private onChooseCallback: (file: TFile) => Promise<void>;
+
+	constructor(app: App, onChoose: (file: TFile) => Promise<void>) {
+		super(app);
+		this.onChooseCallback = onChoose;
+		this.setPlaceholder('Select template file...');
+	}
+
+	getItems(): TFile[] {
+		return this.app.vault.getMarkdownFiles();
+	}
+
+	getItemText(file: TFile): string {
+		return file.path;
+	}
+
+	async onChooseItem(file: TFile): Promise<void> {
+		await this.onChooseCallback(file);
 	}
 }

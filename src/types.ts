@@ -1,5 +1,12 @@
 import { TFile } from 'obsidian';
 
+export enum ModifierAction {
+	OPEN_NORMAL = 'open-normal',
+	CREATE_NOTE = 'create-note',
+	OPEN_NEW_PANE = 'open-new-pane',
+	OPEN_NEW_WINDOW = 'open-new-window'
+}
+
 export type PropertyFilterOperator = 'equals' | 'not-equals' | 'contains' | 'exists' | 'not-exists';
 
 export interface PropertyFilter {
@@ -45,6 +52,7 @@ export interface SmartQuickSwitcherSettings {
 	maxSuggestions: number;
 	showDirectory: boolean;
 	maxRecentFiles: number;  // LRU cache size
+	newNoteTemplate?: string;  // Optional path to template file for new notes
 }
 
 export enum ResultGroup {
@@ -68,6 +76,7 @@ export const DEFAULT_SETTINGS: SmartQuickSwitcherSettings = {
 	maxSuggestions: 50,
 	showDirectory: true,
 	maxRecentFiles: 4,
+	newNoteTemplate: undefined,
 };
 
 export function createDefaultRule(): SearchRule {
