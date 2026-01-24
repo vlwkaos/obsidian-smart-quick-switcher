@@ -1,10 +1,10 @@
-# Extended Search Results
-
-**Purpose**: Understanding the `[all]` label and extendSearchResult setting
-**Read when**: User asks about `[all]` label, extended results, or why some results appear dimmed
-**Skip when**: Only working with basic filtered search (no extended results)
-
 ---
+name: extended-search-results
+description: Files matching query but outside property filters, shown with [all] label and dimmed
+keywords: extended-results, all-label, non-filtered, extend-search-result, dimmed, safety-net
+---
+
+# Extended Search Results
 
 ## What Are Extended Search Results?
 

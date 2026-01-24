@@ -1,10 +1,10 @@
-# Utility Extraction
-
-**Purpose**: Process for moving logic from components to testable utilities
-**Read when**: Need to refactor complex component logic
-**Skip when**: Logic is already in utils/ or is simple glue code
-
 ---
+name: utility-extraction
+description: Step-by-step process for refactoring complex component logic into testable pure utils
+keywords: refactoring, extraction, pure-functions, testing, testability, utils, component-logic
+---
+
+# Utility Extraction
 
 ## When to Extract
 

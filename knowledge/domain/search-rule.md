@@ -1,10 +1,10 @@
-# SearchRule
-
-**Purpose**: Configuration that defines how search should behave for a specific workspace or context
-**Read when**: Understanding how search behavior is customized per workspace
-**Skip when**: Just implementing basic search without configuration
-
 ---
+name: search-rule
+description: Configuration defining search behavior per workspace (filters, priorities, fallback)
+keywords: search-rule, configuration, workspace, property-filters, result-groups, search-behavior
+---
+
+# SearchRule
 
 ## What is a SearchRule?
 

@@ -1,10 +1,10 @@
-# Link Analysis
-
-**Purpose**: Process of categorizing files by their link relationships to the current file
-**Read when**: Understanding how link-based groups are determined
-**Skip when**: Not working with link relationship detection
-
 ---
+name: link-analysis
+description: Process of categorizing files by link relationships (outgoing, backlinks, two-hop)
+keywords: link-analysis, wikilinks, outgoing, backlinks, two-hop, metadata-cache, relationships
+---
+
+# Link Analysis
 
 ## What is Link Analysis?
 

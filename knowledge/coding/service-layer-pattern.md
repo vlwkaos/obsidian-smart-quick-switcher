@@ -1,10 +1,10 @@
-# Service Layer Pattern
-
-**Purpose**: Separation of concerns using dedicated service classes for different responsibilities
-**Read when**: Adding new features that interact with Obsidian API
-**Skip when**: Writing pure utility functions
-
 ---
+name: service-layer-pattern
+description: Separation of concerns using dedicated service classes for Obsidian API interactions
+keywords: service-class, obsidian-api, dependency-injection, separation-of-concerns, architecture, thin-wrapper
+---
+
+# Service Layer Pattern
 
 ## What is the Service Layer?
 

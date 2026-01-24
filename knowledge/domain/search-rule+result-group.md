@@ -1,10 +1,10 @@
-# SearchRule + ResultGroup
-
-**Purpose**: How search rules configure priority ordering for different result groups
-**Read when**: Understanding how result display order is controlled
-**Skip when**: Not working with result prioritization
-
 ---
+name: search-rule+result-group
+description: How search rules configure priority ordering and enabled status for result groups
+keywords: priority-ordering, result-groups, enabled-disabled, customization, ignore-filters, within-group-sorting
+---
+
+# SearchRule + ResultGroup
 
 ## Relationship
 

@@ -1,10 +1,10 @@
-# ResultGroup
-
-**Purpose**: Categories for organizing search results by their relationship to the current file
-**Read when**: Understanding how search results are organized and prioritized
-**Skip when**: Not working with search result display or ordering
-
 ---
+name: result-group
+description: Categories for organizing search results by relationship type (recent, links, other)
+keywords: result-group, categorization, recent, outgoing, backlinks, two-hop, non-filtered, relationship
+---
+
+# ResultGroup
 
 ## What is a ResultGroup?
 

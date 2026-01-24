@@ -1,10 +1,10 @@
-# Test Coverage Strategy
-
-**Purpose**: Guidelines on what to test, what not to test, and why
-**Read when**: Deciding whether to write tests for new code
-**Skip when**: Already know testing strategy for your component
-
 ---
+name: test-coverage-strategy
+description: Guidelines on what to test (pure utils), what not to test (services, UI), and why
+keywords: testing, test-coverage, pure-functions, vitest, unit-tests, integration-tests, manual-qa
+---
+
+# Test Coverage Strategy
 
 ## Current Test Coverage
 

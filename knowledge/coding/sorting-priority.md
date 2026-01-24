@@ -1,10 +1,10 @@
-# Sorting Priority
-
-**Purpose**: Standard for how search results are ordered
-**Read when**: Implementing or modifying result sorting
-**Skip when**: Not working with result ordering
-
 ---
+name: sorting-priority
+description: Two-level sorting standard - group priority first, then match score within groups
+keywords: sorting, priority, match-score, result-ordering, group-priority, secondary-sort
+---
+
+# Sorting Priority
 
 ## Sorting Rule
 

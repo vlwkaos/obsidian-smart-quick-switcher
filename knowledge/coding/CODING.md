@@ -8,6 +8,7 @@ Use @knowledge/coding/filename.md syntax for references.
 - **Pure Functions Pattern** - @knowledge/coding/pure-functions-pattern.md - Extract testable logic from Obsidian-dependent components
 - **Service Layer Pattern** - @knowledge/coding/service-layer-pattern.md - Separation of concerns with dedicated service classes
 - **Modal Architecture** - @knowledge/coding/modal-architecture.md - Extending FuzzySuggestModal with custom search logic
+- **Keyboard Event Handling** - @knowledge/coding/keyboard-event-handling.md - Using scope.register for modal keyboard events
 
 ## Architecture
 

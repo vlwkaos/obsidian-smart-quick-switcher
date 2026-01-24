@@ -1,10 +1,10 @@
-# Pure Functions Pattern
-
-**Purpose**: Pattern for extracting testable business logic from UI components
-**Read when**: Need to add complex logic that should be tested
-**Skip when**: Writing simple UI glue code with no business logic
-
 ---
+name: pure-functions-pattern
+description: Pattern for extracting testable business logic from UI components into pure utils
+keywords: pure-functions, testability, utils, obsidian-api, separation-of-concerns, maintainability, testing
+---
+
+# Pure Functions Pattern
 
 ## What is the Pure Functions Pattern?
 

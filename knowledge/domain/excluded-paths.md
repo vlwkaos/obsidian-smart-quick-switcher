@@ -1,10 +1,10 @@
-# Excluded Paths
-
-**Purpose**: Path-based filtering to exclude entire folders from search results
-**Read when**: Understanding how to exclude folders like templates/, archive/ from all search operations
-**Skip when**: Only working with property filters (frontmatter-based filtering)
-
 ---
+name: excluded-paths
+description: Path-based filtering to completely remove folders from search (templates, archive)
+keywords: excluded-paths, folder-filtering, path-matching, search-scope, templates, archive
+---
+
+# Excluded Paths
 
 ## What Are Excluded Paths?
 

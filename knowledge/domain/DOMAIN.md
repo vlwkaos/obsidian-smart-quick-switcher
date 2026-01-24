@@ -18,6 +18,7 @@ Use @knowledge/domain/filename.md syntax for references.
 ## Workflows
 
 - **Search Flow** - @knowledge/domain/search-flow.md - Complete search process from empty/non-empty query to result display
+- **Modifier Key Actions** - @knowledge/domain/modifier-key-actions.md - Keyboard modifier behavior (Shift+Enter to create notes)
 
 ## Terminology
 

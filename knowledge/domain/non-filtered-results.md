@@ -1,10 +1,10 @@
-# Non-filtered Results
-
-**Purpose**: Files outside property filters that still match the search query
-**Read when**: Understanding the "show all matching files" feature
-**Skip when**: Not working with the showNonFiltered feature
-
 ---
+name: non-filtered-results
+description: Files matching query but failing property filters, shown with [all] label and dimmed
+keywords: non-filtered, all-label, dimmed, discovery, complete-coverage, fallback-vs-non-filtered
+---
+
+# Non-filtered Results
 
 ## What Are Non-filtered Results?
 

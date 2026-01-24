@@ -1,10 +1,10 @@
-# Property Filters (System)
-
-**Purpose**: Overview of the frontmatter metadata-based file filtering system
-**Read when**: Understanding the overall filtering concept
-**Skip when**: Need specific operator details (see property-filter.md instead)
-
 ---
+name: property-filters
+description: System overview of frontmatter metadata-based file filtering with AND logic
+keywords: property-filtering, frontmatter, metadata, system-overview, filter-application, bypass-mechanisms
+---
+
+# Property Filters (System)
 
 ## What is Property Filtering?
 

@@ -1,10 +1,10 @@
-# Search Flow
-
-**Purpose**: Complete workflow from user input to displayed results
-**Read when**: Understanding the entire search process
-**Skip when**: Working on isolated components
-
 ---
+name: search-flow
+description: Complete workflow from user input through filtering, categorization, to displayed results
+keywords: workflow, search-process, empty-query, typed-query, filtering, categorization, sorting
+---
+
+# Search Flow
 
 ## Overview
 

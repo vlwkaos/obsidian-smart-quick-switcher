@@ -1,10 +1,10 @@
-# PropertyFilter
-
-**Purpose**: Criteria for filtering files based on frontmatter metadata values
-**Read when**: Understanding how files are filtered before search
-**Skip when**: Not working with property-based filtering
-
 ---
+name: property-filter
+description: Criteria for filtering files by frontmatter metadata using various operators
+keywords: property-filter, frontmatter, metadata, operators, equals, contains, exists, filtering
+---
+
+# PropertyFilter
 
 ## What is a PropertyFilter?
 

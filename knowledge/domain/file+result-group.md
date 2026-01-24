@@ -1,10 +1,10 @@
-# File + ResultGroup
-
-**Purpose**: How files are categorized into groups based on relationship to current file
-**Read when**: Understanding the logic for file categorization
-**Skip when**: Not working with relationship detection
-
 ---
+name: file+result-group
+description: Logic for categorizing files into groups based on relationship to current file
+keywords: categorization, relationship-detection, recent, outgoing, backlinks, two-hop, priority-order
+---
+
+# File + ResultGroup
 
 ## Relationship
 

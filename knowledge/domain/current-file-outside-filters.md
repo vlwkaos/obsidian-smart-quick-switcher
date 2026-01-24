@@ -1,10 +1,10 @@
-# Current File Outside Filters
-
-**Purpose**: Behavior when current file doesn't match the active search rule's filters
-**Read when**: Understanding why related files are shown even when current file doesn't match filter
-**Skip when**: Current file always matches your active rules
-
 ---
+name: current-file-outside-filters
+description: Special behavior when current file fails property filters - shows related files anyway
+keywords: outside-filters, filter-related-files, related-files, all-label, empty-query, visual-indicator
+---
+
+# Current File Outside Filters
 
 ## What Does "Outside Filters" Mean?
 
