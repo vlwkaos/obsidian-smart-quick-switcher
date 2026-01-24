@@ -4,6 +4,7 @@ import { LinkAnalyzer, CategorizedLinks } from './LinkAnalyzer';
 import { PropertyFilterEngine } from './PropertyFilterEngine';
 import { RecentFilesTracker } from './RecentFilesTracker';
 import { filterByExcludedPaths, isPathExcluded } from './utils/pathFilterUtils';
+import { getSupportedFiles } from './utils/fileUtils';
 
 /**
  * Core search engine that orchestrates filtering, searching, and prioritization
@@ -30,8 +31,8 @@ export class SearchEngine {
 	 * Search files based on query and rule
 	 */
 	public search(query: string, rule: SearchRule, currentFile: TFile | null): SearchResult[] {
-		// Get all markdown files
-		let allFiles = this.app.vault.getMarkdownFiles();
+		// Get all supported files (.md, .canvas, .base)
+		let allFiles = getSupportedFiles(this.app);
 		const totalFiles = allFiles.length;
 
 		// Step 1: Apply excluded paths filter
