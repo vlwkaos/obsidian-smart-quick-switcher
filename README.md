@@ -79,15 +79,33 @@ Assign search rules to workspaces for automatic rule switching.
 
 ## Development
 
+### Setup
+
+Clone this repo **outside** your Obsidian vault, then:
+
 ```bash
 # Install dependencies
 npm install
 
-# Development mode with auto-rebuild
+# Build and symlink into your vault (replace "my-vault" with your vault directory name)
+npm run setup -- my-vault
+```
+
+The setup script searches `~/`, `~/Documents/`, and `~/Desktop/` for a directory named `my-vault` that contains `.obsidian/`. You can also pass an absolute path.
+
+After setup, enable the plugin in Obsidian → Settings → Community Plugins.
+
+### Development commands
+
+```bash
+# Watch mode (auto-rebuild on change)
 npm run dev
 
 # Build for production
 npm run build
+
+# Re-link to vault after manual build
+npm run link -- my-vault
 
 # Run tests
 npm test

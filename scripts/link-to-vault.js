@@ -1,38 +1,38 @@
 #!/usr/bin/env node
 /**
  * Link plugin build output to Obsidian vault.
- * Finds vault by searching parent directories for .obsidian folder.
  *
- * Usage: node scripts/link-to-vault.js [vault-path]
+ * Usage: node scripts/link-to-vault.js <vault-name-or-path>
+ *   vault-name-or-path: directory name (e.g. "dgv3") searched under ~/, or an absolute path
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const PLUGIN_NAME = 'obsidian-smart-quick-switcher';
 const FILES_TO_LINK = ['main.js', 'manifest.json', 'styles.css'];
+const SEARCH_ROOTS = [os.homedir(), path.join(os.homedir(), 'Documents'), path.join(os.homedir(), 'Desktop')];
 
-function findVault(startDir, maxDepth = 5) {
-  let dir = startDir;
-
-  for (let i = 0; i < maxDepth; i++) {
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-
-    // Check siblings of current directory
-    const siblings = fs.readdirSync(parent);
-    for (const sibling of siblings) {
-      const siblingPath = path.join(parent, sibling);
-      const obsidianPath = path.join(siblingPath, '.obsidian');
-
-      if (fs.existsSync(obsidianPath) && fs.statSync(obsidianPath).isDirectory()) {
-        console.log(`Found vault: ${siblingPath}`);
-        return siblingPath;
-      }
+function findVaultByName(name) {
+  for (const root of SEARCH_ROOTS) {
+    const candidate = path.join(root, name);
+    const obsidianDir = path.join(candidate, '.obsidian');
+    if (fs.existsSync(obsidianDir) && fs.statSync(obsidianDir).isDirectory()) {
+      return candidate;
     }
-    dir = parent;
   }
   return null;
+}
+
+function resolveVault(arg) {
+  if (path.isAbsolute(arg)) return arg;
+  const found = findVaultByName(arg);
+  if (!found) {
+    console.error(`Vault "${arg}" not found under ${SEARCH_ROOTS.join(', ')}`);
+    process.exit(1);
+  }
+  return found;
 }
 
 function ensureDir(dir) {
@@ -58,17 +58,14 @@ function createSymlink(src, dest) {
 }
 
 function main() {
-  const pluginDir = path.resolve(__dirname, '..');
-  let vaultPath = process.argv[2];
-
-  if (!vaultPath) {
-    vaultPath = findVault(pluginDir);
-    if (!vaultPath) {
-      console.error('No Obsidian vault found. Specify path: node scripts/link-to-vault.js /path/to/vault');
-      process.exit(1);
-    }
+  const arg = process.argv[2];
+  if (!arg) {
+    console.error('Usage: node scripts/link-to-vault.js <vault-name-or-path>');
+    process.exit(1);
   }
 
+  const pluginDir = path.resolve(__dirname, '..');
+  const vaultPath = resolveVault(arg);
   const pluginsDir = path.join(vaultPath, '.obsidian', 'plugins', PLUGIN_NAME);
   ensureDir(pluginsDir);
 
