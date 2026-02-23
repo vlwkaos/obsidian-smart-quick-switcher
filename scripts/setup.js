@@ -18,8 +18,18 @@ if (!arg) {
 
 const root = path.resolve(__dirname, '..');
 
-console.log('Building...');
-execSync('node esbuild.config.mjs production', { cwd: root, stdio: 'inherit' });
+try {
+  console.log('Building...');
+  execSync('node esbuild.config.mjs production', { cwd: root, stdio: 'inherit' });
+} catch {
+  console.error('Build failed.');
+  process.exit(1);
+}
 
-console.log('Linking...');
-execSync(`node scripts/link-to-vault.js ${JSON.stringify(arg)}`, { cwd: root, stdio: 'inherit' });
+try {
+  console.log('Linking...');
+  execSync(`node scripts/link-to-vault.js ${JSON.stringify(arg)}`, { cwd: root, stdio: 'inherit' });
+} catch {
+  console.error(`Failed to link plugin to vault "${arg}".`);
+  process.exit(1);
+}

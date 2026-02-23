@@ -61,14 +61,11 @@ function ensureDir(dir) {
 }
 
 function createSymlink(src, dest) {
-  if (fs.existsSync(dest)) {
-    const stat = fs.lstatSync(dest);
-    if (stat.isSymbolicLink()) {
-      fs.unlinkSync(dest);
-    } else {
-      console.log(`  Skip ${path.basename(dest)} (not a symlink)`);
-      return false;
-    }
+  try {
+    fs.lstatSync(dest);
+    fs.unlinkSync(dest);
+  } catch {
+    // dest doesn't exist, nothing to remove
   }
 
   fs.symlinkSync(src, dest);
