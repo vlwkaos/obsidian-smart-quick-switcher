@@ -31,7 +31,6 @@ export interface SearchRule {
 	
 	// Search behavior
 	fuzzySearch: boolean;
-	searchInContent: boolean;
 	searchInTags: boolean;
 	searchInProperties: boolean;
 	
@@ -64,10 +63,19 @@ export enum ResultGroup {
 	NON_FILTERED = 'non-filtered'
 }
 
+// Which field a query matched against — drives the per-result badges in the modal
+export enum MatchField {
+	NAME = 'name',
+	TAG = 'tag',
+	PROPERTY = 'property'
+}
+
 export interface SearchResult {
 	file: TFile;
 	group: ResultGroup;
 	priority: number;
+	matchedFields?: MatchField[];  // ^ set during query search; undefined for empty-query browse
+	score?: number;                // ^ combined fuzzy score, used to order within a group
 }
 
 export const DEFAULT_SETTINGS: SmartQuickSwitcherSettings = {
@@ -86,7 +94,6 @@ export function createDefaultRule(): SearchRule {
 		excludedPaths: [],
 		propertyFilters: [],
 		fuzzySearch: true,
-		searchInContent: false,
 		searchInTags: true,
 		searchInProperties: false,
 		recentFiles: { enabled: true, priority: 1, ignoreFilters: true },

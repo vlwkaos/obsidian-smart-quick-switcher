@@ -1,9 +1,6 @@
-import { App, FuzzySuggestModal, TFile, FuzzyMatch, prepareFuzzySearch, normalizePath } from 'obsidian';
-import { SearchRule, SearchResult, ResultGroup } from './types';
+import { App, FuzzySuggestModal, TFile, FuzzyMatch, normalizePath } from 'obsidian';
+import { SearchRule, SearchResult, ResultGroup, MatchField } from './types';
 import { SearchEngine } from './SearchEngine';
-import { findNonFilteredMatches } from './utils/suggestionUtils';
-import { filterByExcludedPaths } from './utils/pathFilterUtils';
-import { getSupportedFiles } from './utils/fileUtils';
 import { getModifierAction, extractModifiers, ModifierAction } from './utils/modifierKeyUtils';
 
 /**
@@ -16,7 +13,6 @@ export class SmartQuickSwitcherModal extends FuzzySuggestModal<TFile> {
 	private maxSuggestions: number;
 	private fileToResultMap: Map<string, SearchResult>;
 	private lastQuery: string;
-	private usingFallback: boolean;
 	private currentSuggestions: FuzzyMatch<TFile>[] = [];
 
 	constructor(
@@ -34,7 +30,6 @@ export class SmartQuickSwitcherModal extends FuzzySuggestModal<TFile> {
 		this.maxSuggestions = maxSuggestions;
 		this.fileToResultMap = new Map();
 		this.lastQuery = '';
-		this.usingFallback = false;
 
 		// Set placeholder based on current file status
 		if (currentFileOutsideFilters) {
@@ -71,82 +66,41 @@ export class SmartQuickSwitcherModal extends FuzzySuggestModal<TFile> {
 	}
 
 	getItems(): TFile[] {
-		// Get property-filtered files (without search query)
+		// Required by FuzzySuggestModal, but matching is driven entirely by our
+		// getSuggestions() override (which routes through SearchEngine). Returning the
+		// empty-query result set keeps the contract satisfied without affecting matching.
 		const currentFile = this.app.workspace.getActiveFile();
-		const results = this.searchEngine.search('', this.activeRule, currentFile);
-		
-		// Build map for rendering
-		this.fileToResultMap.clear();
-		for (const result of results) {
-			this.fileToResultMap.set(result.file.path, result);
-		}
-		
-		this.usingFallback = false;
-		const files = results.map(r => r.file);
-		
-		console.log('[SmartQuickSwitcher] getItems() called, filtered files:', files.length);
-		
-		return files;
+		return this.searchEngine.search('', this.activeRule, currentFile).map(r => r.file);
 	}
 
 	getSuggestions(query: string): FuzzyMatch<TFile>[] {
 		this.lastQuery = query;
-		
-		// Get base suggestions from parent class (searches within getItems() results)
-		const suggestions = super.getSuggestions(query);
-		
-		console.log('[SmartQuickSwitcher] getSuggestions query:', `"${query}"`, '| base matches:', suggestions.length, '| extendSearchResult:', this.activeRule.extendSearchResult);
-		
-		// If query is empty, return base suggestions (already handled by getItems())
-		if (!query || query.trim().length === 0) {
-			this.currentSuggestions = suggestions;
-			this.updateInstructions(suggestions.length > 0, false);
-			return suggestions;
+
+		// Route ALL queries through SearchEngine so name + tag + property scoring runs.
+		// (The base FuzzySuggestModal only matches getItemText() = basename, which is why
+		//  tag/property search previously produced no suggestions.)
+		const currentFile = this.app.workspace.getActiveFile();
+		const results = this.searchEngine.search(query, this.activeRule, currentFile);
+
+		// Rebuild the render map from this query's results (carries group + matchedFields)
+		this.fileToResultMap.clear();
+		for (const result of results) {
+			this.fileToResultMap.set(result.file.path, result);
 		}
-		
-		// If extendSearchResult enabled, also search ALL candidate files and append [all] results
-		if (this.activeRule.extendSearchResult) {
-			console.log('[SmartQuickSwitcher] Searching all candidate files for extended results');
-			
-			const allFiles = getSupportedFiles(this.app);
-			const candidateFiles = filterByExcludedPaths(allFiles, this.activeRule.excludedPaths);
-			const existingPaths = new Set(suggestions.map(s => s.item.path));
-			
-			// Use utility function to find and sort non-filtered matches
-			const fuzzySearch = prepareFuzzySearch(query);
-			const nonFilteredMatches = findNonFilteredMatches(
-				candidateFiles,
-				existingPaths,
-				query,
-				fuzzySearch
-			);
-			
-			// Add to map for rendering with [all] label
-			for (const match of nonFilteredMatches) {
-				this.fileToResultMap.set(match.file.path, {
-					file: match.file,
-					group: ResultGroup.NON_FILTERED,
-					priority: 1000
-				});
-			}
-			
-			// Convert to FuzzyMatch format
-			const extendedMatches: FuzzyMatch<TFile>[] = nonFilteredMatches.map(m => ({
-				item: m.file,
-				match: { score: m.score, matches: [] }
-			}));
-			
-			console.log('[SmartQuickSwitcher] Extended matches found:', extendedMatches.length);
-			
-			// Combine base + extended, limit to maxSuggestions
-			const finalSuggestions = [...suggestions, ...extendedMatches].slice(0, this.maxSuggestions);
-			this.currentSuggestions = finalSuggestions;
-			this.updateInstructions(finalSuggestions.length > 0, true);
-			return finalSuggestions;
-		}
-		
+
+		const hasQuery = !!(query && query.trim().length > 0);
+		const limited = results.slice(0, this.maxSuggestions);
+
+		console.log('[SmartQuickSwitcher] getSuggestions query:', `"${query}"`, '| results:', results.length, '| shown:', limited.length);
+
+		// SearchEngine already scored + ordered; wrap as FuzzyMatch without re-matching.
+		const suggestions: FuzzyMatch<TFile>[] = limited.map(r => ({
+			item: r.file,
+			match: { score: r.score ?? 0, matches: [] }
+		}));
+
 		this.currentSuggestions = suggestions;
-		this.updateInstructions(suggestions.length > 0, true);
+		this.updateInstructions(suggestions.length > 0, hasQuery);
 		return suggestions;
 	}
 	
@@ -199,6 +153,16 @@ export class SmartQuickSwitcherModal extends FuzzySuggestModal<TFile> {
 		// Add file name with fuzzy match highlighting
 		const nameEl = el.createSpan();
 		nameEl.setText(file.basename);
+
+		// Add match-field badges (tag / prop) showing WHY this file matched the query.
+		// 'name' is implicit (the title is shown), so only non-name fields get a badge.
+		if (result?.matchedFields) {
+			for (const field of result.matchedFields) {
+				if (field === MatchField.NAME) continue;
+				const badge = el.createSpan({ cls: 'smart-quick-switcher-match-badge' });
+				badge.setText(field === MatchField.TAG ? 'tag' : 'prop');
+			}
+		}
 
 		// Add directory path if enabled
 		if (this.showDirectory && file.parent) {

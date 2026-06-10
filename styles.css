@@ -14,6 +14,19 @@
 	margin-right: 4px;
 }
 
+/* Match-field badges (why a file matched: tag / prop) */
+.smart-quick-switcher-match-badge {
+	flex-shrink: 0;
+	font-size: 0.7em;
+	line-height: 1.4;
+	padding: 0 5px;
+	border-radius: 3px;
+	color: var(--text-muted);
+	background: var(--background-modifier-border);
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
 .smart-quick-switcher-path {
 	color: var(--text-muted);
 	font-size: 0.9em;

@@ -384,15 +384,6 @@ export class SmartQuickSwitcherSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Search in content')
-			.addToggle(toggle => toggle
-				.setValue(rule.searchInContent)
-				.onChange(async (value) => {
-					rule.searchInContent = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
 			.setName('Search in tags')
 			.addToggle(toggle => toggle
 				.setValue(rule.searchInTags)

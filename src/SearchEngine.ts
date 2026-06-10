@@ -1,5 +1,12 @@
 import { App, TFile, prepareFuzzySearch, SearchResult as ObsidianSearchResult } from 'obsidian';
-import { SearchRule, SearchResult, ResultGroup } from './types';
+import { SearchRule, SearchResult, ResultGroup, MatchField } from './types';
+
+// A single file's query match, carrying score + which fields matched (for badges)
+export interface QueryMatch {
+	file: TFile;
+	score: number;
+	matchedFields: MatchField[];
+}
 import { LinkAnalyzer, CategorizedLinks } from './LinkAnalyzer';
 import { PropertyFilterEngine } from './PropertyFilterEngine';
 import { RecentFilesTracker } from './RecentFilesTracker';
@@ -91,29 +98,36 @@ export class SearchEngine {
 
 		console.log('[SearchEngine] Matched files in filtered set:', matchedFiles.length);
 
-		// Group and prioritize matched files
-		let results = this.getGroupedResults(matchedFiles, rule, currentFile);
+		// Group and prioritize matched files (carrying match badges/scores)
+		let results = this.getGroupedResults(
+			matchedFiles.map(m => m.file),
+			rule,
+			currentFile,
+			this.matchMap(matchedFiles)
+		);
 
 		// Extend with non-filtered results if enabled
 		if (rule.extendSearchResult) {
 			console.log('[SearchEngine] extendSearchResult enabled, searching non-filtered files');
-			
+
 			// Get all files that are NOT in the filtered set
 			const filteredPaths = new Set(filteredFiles.map(f => f.path));
 			const nonFilteredFiles = candidateFiles.filter(f => !filteredPaths.has(f.path));
-			
+
 			// Search within non-filtered files
 			const nonFilteredMatches = this.searchByQuery(nonFilteredFiles, query, rule);
-			
+
 			// Add non-filtered matches with NON_FILTERED group and low priority
-			const nonFilteredResults = nonFilteredMatches.map(file => ({
-				file,
+			const nonFilteredResults = nonFilteredMatches.map(m => ({
+				file: m.file,
 				group: ResultGroup.NON_FILTERED,
-				priority: 1000
+				priority: 1000,
+				matchedFields: m.matchedFields,
+				score: m.score
 			}));
-			
+
 			console.log('[SearchEngine] Non-filtered results:', nonFilteredResults.length);
-			
+
 			// Append to results (handles both "has matches" and "no matches" cases)
 			results = results.concat(nonFilteredResults);
 		}
@@ -122,63 +136,88 @@ export class SearchEngine {
 	}
 
 	/**
-	 * Search files by query string
+	 * Search files by query string.
+	 * Scores name + (optionally) tags + properties, and records which fields matched
+	 * so the modal can render per-field badges. Returns QueryMatch[] sorted by score desc.
 	 */
-	private searchByQuery(files: TFile[], query: string, rule: SearchRule): TFile[] {
+	private searchByQuery(files: TFile[], query: string, rule: SearchRule): QueryMatch[] {
 		const fuzzySearch = prepareFuzzySearch(query);
-		const results: Array<{ file: TFile; score: number }> = [];
+		const results: QueryMatch[] = [];
 
 		console.log('[SearchEngine] searchByQuery called with', files.length, 'files, query:', `"${query}"`);
 
 		for (const file of files) {
 			let score = 0;
+			const matchedFields: MatchField[] = [];
 
 			// Search in file name
 			const nameResult = fuzzySearch(file.basename);
 			if (nameResult) {
 				score += nameResult.score;
+				matchedFields.push(MatchField.NAME);
 			}
 
-			// Search in tags (if enabled)
+			// Search in tags (if enabled) — covers both inline (#tag) and YAML frontmatter `tags`
 			if (rule.searchInTags) {
-				const cache = this.app.metadataCache.getFileCache(file);
-				const tags = cache?.tags?.map(t => t.tag) || [];
-				for (const tag of tags) {
+				let tagMatched = false;
+				for (const tag of this.getFileTags(file)) {
 					const tagResult = fuzzySearch(tag);
 					if (tagResult) {
 						score += tagResult.score * 0.5; // Lower weight for tags
+						tagMatched = true;
 					}
+				}
+				if (tagMatched) {
+					matchedFields.push(MatchField.TAG);
 				}
 			}
 
-			// Search in properties (if enabled)
+			// Search in properties (if enabled) — frontmatter key:value pairs, excluding tags
 			if (rule.searchInProperties) {
 				const cache = this.app.metadataCache.getFileCache(file);
 				const frontmatter = cache?.frontmatter;
+				let propMatched = false;
 				if (frontmatter) {
 					for (const [key, value] of Object.entries(frontmatter)) {
+						if (key === 'tags') continue; // ^ tags handled by searchInTags
 						const propStr = `${key}:${String(value)}`;
 						const propResult = fuzzySearch(propStr);
 						if (propResult) {
 							score += propResult.score * 0.3; // Lower weight for properties
+							propMatched = true;
 						}
 					}
 				}
+				if (propMatched) {
+					matchedFields.push(MatchField.PROPERTY);
+				}
 			}
 
-			if (score > 0) {
-				results.push({ file, score });
+			if (matchedFields.length > 0) {
+				results.push({ file, score, matchedFields });
 			}
 		}
 
 		console.log('[SearchEngine] searchByQuery found', results.length, 'matches');
 		if (results.length > 0 && results.length <= 5) {
-			console.log('[SearchEngine] Sample results:', results.slice(0, 5).map(r => ({ name: r.file.basename, score: r.score })));
+			console.log('[SearchEngine] Sample results:', results.slice(0, 5).map(r => ({ name: r.file.basename, score: r.score, fields: r.matchedFields })));
 		}
 
 		// Sort by score (descending)
 		results.sort((a, b) => b.score - a.score);
-		return results.map(r => r.file);
+		return results;
+	}
+
+	/**
+	 * Collect a file's tags from both inline tags and the YAML frontmatter `tags` property.
+	 * Frontmatter tags may be a string or string[]; inline tags include the leading '#'.
+	 */
+	private getFileTags(file: TFile): string[] {
+		const cache = this.app.metadataCache.getFileCache(file);
+		const inline = cache?.tags?.map(t => t.tag) || [];
+		const fm = cache?.frontmatter?.tags;
+		const fmTags = Array.isArray(fm) ? fm.map(String) : (fm ? [String(fm)] : []);
+		return [...inline, ...fmTags];
 	}
 
 	/**
@@ -251,21 +290,28 @@ export class SearchEngine {
 			linkedPaths.has(f.path) || recentSet.has(f.path)
 		);
 		const linkedMatches = this.searchByQuery(linkedFiles, query, rule);
-		const linkedResults = this.getGroupedResults(linkedMatches, rule, currentFile);
-		
+		const linkedResults = this.getGroupedResults(
+			linkedMatches.map(m => m.file),
+			rule,
+			currentFile,
+			this.matchMap(linkedMatches)
+		);
+
 		console.log('[SearchEngine] Link-based matches:', linkedMatches.length);
-		
+
 		// 3. Search within filtered files (excluding already matched links)
-		const matchedPaths = new Set(linkedMatches.map(f => f.path));
+		const matchedPaths = new Set(linkedMatches.map(m => m.file.path));
 		const filteredFiles = this.propertyFilter.filterFiles(candidateFiles, rule.propertyFilters);
 		const remainingFiltered = filteredFiles.filter(f => !matchedPaths.has(f.path));
 		const filteredMatches = this.searchByQuery(remainingFiltered, query, rule);
-		const filteredResults = filteredMatches.map(file => ({
-			file,
+		const filteredResults = filteredMatches.map(m => ({
+			file: m.file,
 			group: ResultGroup.OTHER,
-			priority: 500  // After linked results
+			priority: 500,  // After linked results
+			matchedFields: m.matchedFields,
+			score: m.score
 		}));
-		
+
 		console.log('[SearchEngine] Filtered matches:', filteredMatches.length);
 		
 		// 4. Combine results
@@ -276,17 +322,19 @@ export class SearchEngine {
 			console.log('[SearchEngine] extendSearchResult enabled for link priority search');
 			
 			// Get non-filtered files (excluding already matched)
-			const allMatchedPaths = new Set([...matchedPaths, ...filteredMatches.map(f => f.path)]);
+			const allMatchedPaths = new Set([...matchedPaths, ...filteredMatches.map(m => m.file.path)]);
 			const filteredPaths = new Set(filteredFiles.map(f => f.path));
-			const nonFilteredFiles = candidateFiles.filter(f => 
+			const nonFilteredFiles = candidateFiles.filter(f =>
 				!allMatchedPaths.has(f.path) && !filteredPaths.has(f.path)
 			);
-			
+
 			const nonFilteredMatches = this.searchByQuery(nonFilteredFiles, query, rule);
-			const nonFilteredResults = nonFilteredMatches.map(file => ({
-				file,
+			const nonFilteredResults = nonFilteredMatches.map(m => ({
+				file: m.file,
 				group: ResultGroup.NON_FILTERED,
-				priority: 1000
+				priority: 1000,
+				matchedFields: m.matchedFields,
+				score: m.score
 			}));
 			
 			console.log('[SearchEngine] Extended non-filtered matches:', nonFilteredMatches.length);
@@ -297,12 +345,31 @@ export class SearchEngine {
 	}
 
 	/**
-	 * Group files by their category and assign priorities
+	 * Build a path -> QueryMatch lookup so grouped results can carry match badges/scores.
 	 */
-	private getGroupedResults(files: TFile[], rule: SearchRule, currentFile: TFile | null): SearchResult[] {
+	private matchMap(matches: QueryMatch[]): Map<string, QueryMatch> {
+		return new Map(matches.map(m => [m.file.path, m]));
+	}
+
+	/**
+	 * Group files by their category and assign priorities.
+	 * When `matchInfo` is provided, each result is enriched with matchedFields + score
+	 * from the corresponding query match (used to render per-field badges).
+	 */
+	private getGroupedResults(
+		files: TFile[],
+		rule: SearchRule,
+		currentFile: TFile | null,
+		matchInfo?: Map<string, QueryMatch>
+	): SearchResult[] {
+		const enrich = (r: SearchResult): SearchResult => {
+			const m = matchInfo?.get(r.file.path);
+			return m ? { ...r, matchedFields: m.matchedFields, score: m.score } : r;
+		};
+
 		if (!currentFile) {
 			// No current file: all files are "other"
-			return files.map(file => ({
+			return files.map(file => enrich({
 				file,
 				group: ResultGroup.OTHER,
 				priority: 999
@@ -345,7 +412,7 @@ export class SearchEngine {
 
 			console.log('[SearchEngine] File:', file.path, '| inRecent:', inRecent, '| inOutgoing:', inOutgoing, '| inBacklinks:', inBacklinks, '| inTwoHop:', inTwoHop, '| group:', group);
 
-			return { file, group, priority };
+			return enrich({ file, group, priority });
 		});
 
 		// Sort by priority (lower number = higher priority)
