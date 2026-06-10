@@ -108,21 +108,12 @@ export class SmartQuickSwitcherModal extends FuzzySuggestModal<TFile> {
 	 * Update footer instructions based on current state
 	 */
 	private updateInstructions(hasMatches: boolean, hasQuery: boolean): void {
-		if (!hasQuery) {
-			// Empty query: show open hint
-			this.setInstructions([
-				{ command: "↵", purpose: "to open" }
-			]);
-		} else if (hasMatches) {
-			// Has matches: show open hint only
-			this.setInstructions([
-				{ command: "↵", purpose: "to open" }
-			]);
+		// When query is empty or matches exist: show open hint.
+		// When query is typed but nothing matched: offer to create instead.
+		if (hasQuery && !hasMatches) {
+			this.setInstructions([{ command: "shift ↵", purpose: "to create" }]);
 		} else {
-			// No matches: show create hint only
-			this.setInstructions([
-				{ command: "shift ↵", purpose: "to create" }
-			]);
+			this.setInstructions([{ command: "↵", purpose: "to open" }]);
 		}
 	}
 

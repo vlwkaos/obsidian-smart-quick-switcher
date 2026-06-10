@@ -70,6 +70,13 @@ export enum MatchField {
 	PROPERTY = 'property'
 }
 
+// A single file's query match, carrying score + which fields matched (for badges)
+export interface QueryMatch {
+	file: TFile;
+	score: number;
+	matchedFields: MatchField[];
+}
+
 export interface SearchResult {
 	file: TFile;
 	group: ResultGroup;

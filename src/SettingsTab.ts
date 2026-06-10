@@ -299,7 +299,7 @@ export class SmartQuickSwitcherSettingTab extends PluginSettingTab {
 		const operatorSpan = nameDiv.createSpan({ cls: 'smart-quick-switcher-filter-operator', text: filter.operator });
 		
 		if (filter.operator !== 'exists' && filter.operator !== 'not-exists') {
-			const valueSpan = nameDiv.createSpan({ cls: 'smart-quick-switcher-filter-value', text: filter.value });
+			nameDiv.createSpan({ cls: 'smart-quick-switcher-filter-value', text: filter.value });
 		}
 		
 		// Create control section with remove button

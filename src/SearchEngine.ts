@@ -1,12 +1,5 @@
 import { App, TFile, prepareFuzzySearch, SearchResult as ObsidianSearchResult } from 'obsidian';
-import { SearchRule, SearchResult, ResultGroup, MatchField } from './types';
-
-// A single file's query match, carrying score + which fields matched (for badges)
-export interface QueryMatch {
-	file: TFile;
-	score: number;
-	matchedFields: MatchField[];
-}
+import { SearchRule, SearchResult, ResultGroup, MatchField, QueryMatch } from './types';
 import { LinkAnalyzer, CategorizedLinks } from './LinkAnalyzer';
 import { PropertyFilterEngine } from './PropertyFilterEngine';
 import { RecentFilesTracker } from './RecentFilesTracker';
@@ -214,10 +207,10 @@ export class SearchEngine {
 	 */
 	private getFileTags(file: TFile): string[] {
 		const cache = this.app.metadataCache.getFileCache(file);
-		const inline = cache?.tags?.map(t => t.tag) || [];
+		const inlineTags = cache?.tags?.map(t => t.tag) || [];
 		const fm = cache?.frontmatter?.tags;
 		const fmTags = Array.isArray(fm) ? fm.map(String) : (fm ? [String(fm)] : []);
-		return [...inline, ...fmTags];
+		return [...inlineTags, ...fmTags];
 	}
 
 	/**
